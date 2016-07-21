@@ -2,7 +2,7 @@ import System.IO
 import Data.List.Split
 import Data.Maybe
 import Data.List
-import Data.List.Extra hiding (splitOn)
+import Data.List.Extra hiding (splitOn, chunksOf)
 
 type IrisVec = (Float, Float, Float, Float)
 type Label = String
@@ -23,12 +23,15 @@ predict k model inVec = mostCommon $ take k $ map label $ sortOn f model
         f :: Iris -> Float
         f Iris {vec=v} = dist inVec v
 
-mostCommon :: (Ord a) => [a] -> a
-mostCommon xs = last $ map snd $ sort $ map (\x->(length x, head x)) (group $ sort xs)
-
 -- Distance metric for comparing Iris measurements
 dist :: IrisVec -> IrisVec -> Float
 dist (a,b,c,d) (p,q,r,s) = (sum $ map (\x -> (abs x) ** 2) [a-p, b-q, c-r, d-s]) ** 0.5
+
+-- Evaluate the accuracy of a prediction method on a dataset
+-- eval :: [Iris] -> Float
+-- eval dataset =
+--     where
+--         setSplits = sublistAndRest
         
 -- Converts the entire datafile contents to a list of Iris vectors.
 parseIris :: String -> [Iris]
@@ -55,3 +58,22 @@ main = do
         inSeto = (5.8, 4.0, 1.2, 0.2)
         inVers = (6.2, 2.4, 4.5, 1.5)
         inVirg = (6.7, 3.1, 5.6, 2.4)
+
+-- Helper functions
+
+-- Returns the most frequently occuring element of the list.
+mostCommon :: (Ord a) => [a] -> a
+mostCommon xs = last $ map snd $ sort $ map (\x->(length x, head x)) (group $ sort xs)
+
+ncross :: Int -> [a] -> [([a], [a])]
+ncross n xs = map (\i -> parts (i*len)) [0..n-1]  
+    where
+        len = (round $ (fromIntegral $ length xs) / (fromIntegral n))
+        parts i = sublistAndRest len i xs
+
+-- Return the len-length sublist starting at i, and all other elements.
+sublistAndRest :: Int -> Int -> [a] -> ([a], [a])
+sublistAndRest len i xs = (p0++p2, p1)
+    where
+        (p, p2) = splitAt (i + len) xs
+        (p0, p1) = splitAt i p
