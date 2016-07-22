@@ -23,15 +23,23 @@ predict k model inVec = mostCommon $ take k $ map label $ sortOn f model
         f :: Iris -> Float
         f Iris {vec=v} = dist inVec v
 
--- Distance metric for comparing Iris measurements
+-- Distance metric for comparing Iris measurements.
 dist :: IrisVec -> IrisVec -> Float
 dist (a,b,c,d) (p,q,r,s) = (sum $ map (\x -> (abs x) ** 2) [a-p, b-q, c-r, d-s]) ** 0.5
 
--- Evaluate the accuracy of a prediction method on a dataset
--- eval :: [Iris] -> Float
--- eval dataset =
---     where
---         setSplits = sublistAndRest
+-- Test the accuracy of the model on the input test data.
+test :: Model -> [Iris] -> Float
+test model testData = (fromIntegral $ length $ filter id results) / (fromIntegral $ length testData) 
+    where
+        testable = predict 3
+        results = map (\iris -> (testable model (vec iris)) == label iris) testData
+
+-- Given a dataset, use ncross to train several classifiers, and return their average accuracy.
+testNcross :: [Iris] -> Float
+testNcross dataset = av results
+    where
+        results = map (\(trainD, testD) -> test trainD testD) (ncross 5 dataset)
+        av xs = (sum xs) / (genericLength xs)
         
 -- Converts the entire datafile contents to a list of Iris vectors.
 parseIris :: String -> [Iris]
@@ -46,13 +54,9 @@ parseIris rows = catMaybes $ map (toIrisVec . splitOn ",") (lines rows)
 
 main = do
     withFile "data/iris/iris.data" ReadMode (\handle -> do
-        model <- fmap parseIris $ hGetContents handle
-        putStr $ unlines
-            [ ("Loaded " ++ (show $ length model) ++ " rows of data.\n")
-            , ("Prediction for setosa: " ++ predict 1 model inSeto)
-            , ("Prediction for versicolor: " ++ predict 1 model inVers)
-            , ("Prediction for virginica: " ++ predict 1 model inVirg)
-            ]
+        dataset <- fmap parseIris $ hGetContents handle
+        putStrLn ("Loaded " ++ (show $ length dataset) ++ " rows of data.")
+        putStrLn ("Ncross accuracy: " ++ (show $ testNcross dataset))
         )
     where
         inSeto = (5.8, 4.0, 1.2, 0.2)
@@ -65,6 +69,7 @@ main = do
 mostCommon :: (Ord a) => [a] -> a
 mostCommon xs = last $ map snd $ sort $ map (\x->(length x, head x)) (group $ sort xs)
 
+-- Partition your input list in n different ways.
 ncross :: Int -> [a] -> [([a], [a])]
 ncross n xs = map (\i -> parts (i*len)) [0..n-1]  
     where
